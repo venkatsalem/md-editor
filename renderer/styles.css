@@ -547,6 +547,43 @@ body {
   background-color: var(--search-match-selected-bg) !important;
 }
 
+/* Task list checkbox widgets */
+.cm-task-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+  position: relative;
+  margin-right: 2px;
+  transition: background-color 0.1s, border-color 0.1s;
+}
+
+.cm-task-checkbox:hover {
+  border-color: var(--accent);
+}
+
+.cm-task-checkbox:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.cm-task-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 5px;
+  height: 9px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
 /* ===== Context Menu ===== */
 .context-menu {
   position: fixed;

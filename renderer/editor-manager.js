@@ -6,6 +6,7 @@ import { syntaxHighlighting, indentOnInput, bracketMatching, foldGutter, Highlig
 import { closeBrackets, closeBracketsKeymap, autocompletion } from '@codemirror/autocomplete';
 import { searchKeymap, highlightSelectionMatches, openSearchPanel, replaceAll } from '@codemirror/search';
 import { tags } from '@lezer/highlight';
+import { checkboxPlugin } from './checkbox-widget.js';
 
 // Compartments for toggleable features
 const wordWrapCompartment = new Compartment();
@@ -196,6 +197,8 @@ export function createEditor(parent, content = '', onChange = null) {
         onChange(update.state.doc.toString());
       }
     }),
+    // Inline checkbox widgets for task lists
+    checkboxPlugin,
     // Placeholder for empty files
     placeholder('Start writing markdown...'),
   ];
