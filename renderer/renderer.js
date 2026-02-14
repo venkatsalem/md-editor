@@ -13,6 +13,8 @@ import {
   updateFontSize,
   getFontSize,
   activateTabByIndex,
+  toggleActiveReadOnly,
+  setReadOnlyByPath,
 } from './tab-manager.js';
 
 import {
@@ -141,6 +143,11 @@ electronAPI.onToggleLineNumbers(() => {
   toggleLineNumbers(views);
 });
 
+// Toggle read-only (from menu)
+electronAPI.onToggleReadOnly(() => {
+  toggleActiveReadOnly();
+});
+
 // Session data request (before close) — use synchronous IPC to ensure data is saved
 electronAPI.onRequestSessionData(() => {
   const sessionData = getSessionData();
@@ -160,6 +167,13 @@ electronAPI.onRestoreFontSize((size) => {
   }
 });
 
+// Restore read-only state for tabs
+electronAPI.onRestoreReadOnly((filePaths) => {
+  if (Array.isArray(filePaths)) {
+    filePaths.forEach(fp => setReadOnlyByPath(fp));
+  }
+});
+
 // Show notification
 electronAPI.onShowNotification((data) => {
   const bar = document.getElementById('notification-bar');
@@ -175,12 +189,49 @@ electronAPI.onShowNotification((data) => {
 
 // ===== Editor Context Menu =====
 document.getElementById('editor-area').addEventListener('contextmenu', (e) => {
-  // Only show on the editor content area (CodeMirror elements)
   const tab = getActiveTab();
   if (!tab) return;
 
   e.preventDefault();
 
+  // In read-only mode, show a minimal context menu
+  if (tab.readOnly) {
+    showContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Edit Mode',
+        shortcut: 'Ctrl+Shift+R',
+        action: () => toggleActiveReadOnly(),
+      },
+      { separator: true },
+      {
+        label: 'Copy',
+        shortcut: 'Ctrl+C',
+        action: () => {
+          const selection = window.getSelection();
+          if (selection && selection.toString()) {
+            navigator.clipboard.writeText(selection.toString());
+          }
+        },
+      },
+      {
+        label: 'Select All',
+        shortcut: 'Ctrl+A',
+        action: () => {
+          const preview = tab.previewWrapper?.querySelector('.markdown-preview');
+          if (preview) {
+            const range = document.createRange();
+            range.selectNodeContents(preview);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+          }
+        },
+      },
+    ]);
+    return;
+  }
+
+  // Normal edit mode context menu
   const view = tab.editorView;
   const hasSelection = view.state.selection.main.from !== view.state.selection.main.to;
 
@@ -271,6 +322,13 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && !e.shiftKey && e.key === 'w') {
     e.preventDefault();
     closeActiveTab();
+    return;
+  }
+
+  // Ctrl+Shift+R for toggle read-only
+  if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+    e.preventDefault();
+    toggleActiveReadOnly();
     return;
   }
 });

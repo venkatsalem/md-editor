@@ -1,6 +1,7 @@
 import { createEditor, getEditorContent, focusEditor, setFontSize } from './editor-manager.js';
 import { createAutoSave } from './autosave.js';
 import { showContextMenu } from './context-menu.js';
+import { renderMarkdown } from './markdown-preview.js';
 
 let tabs = []; // Array of tab objects
 let activeTabId = null;
@@ -18,8 +19,10 @@ const welcomeScreen = document.getElementById('welcome-screen');
  *   filePath: string | null,
  *   title: string,
  *   modified: boolean,
+ *   readOnly: boolean,
  *   editorView: EditorView,
  *   editorWrapper: HTMLElement,
+ *   previewWrapper: HTMLElement | null,
  *   tabElement: HTMLElement,
  *   autoSave: { trigger, saveNow, cancel },
  *   content: string  // last saved content
@@ -65,6 +68,12 @@ function showTabContextMenu(e, tab) {
 
   showContextMenu(e.clientX, e.clientY, [
     {
+      label: tab.readOnly ? 'Edit Mode' : 'Read-Only Mode',
+      shortcut: 'Ctrl+Shift+R',
+      action: () => toggleReadOnly(tab.id),
+    },
+    { separator: true },
+    {
       label: 'Close',
       shortcut: 'Ctrl+W',
       action: () => closeTab(tab.id),
@@ -109,11 +118,16 @@ function createTabElement(tab) {
   titleSpan.className = 'tab-title';
   titleSpan.textContent = tab.title;
 
+  const readOnlySpan = document.createElement('span');
+  readOnlySpan.className = 'tab-readonly';
+  readOnlySpan.textContent = '';
+
   const modifiedSpan = document.createElement('span');
   modifiedSpan.className = 'tab-modified';
   modifiedSpan.textContent = '';
 
   el.appendChild(titleSpan);
+  el.appendChild(readOnlySpan);
   el.appendChild(modifiedSpan);
 
   // Click to activate
@@ -248,6 +262,70 @@ function createEditorWrapper(tab, content) {
   return { wrapper, editorView };
 }
 
+function createPreviewWrapper(tabId) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'preview-wrapper';
+  wrapper.dataset.tabId = tabId;
+  editorsContainer.appendChild(wrapper);
+  return wrapper;
+}
+
+function updatePreviewContent(tab) {
+  if (!tab.previewWrapper) return;
+  const content = getEditorContent(tab.editorView);
+  tab.previewWrapper.innerHTML = '';
+  const previewDiv = document.createElement('div');
+  previewDiv.className = 'markdown-preview';
+  previewDiv.innerHTML = renderMarkdown(content);
+  tab.previewWrapper.appendChild(previewDiv);
+}
+
+/**
+ * Toggle read-only mode for a tab.
+ * When read-only, the CodeMirror editor is hidden and a GitHub-style preview is shown.
+ * @param {string} tabId
+ */
+export function toggleReadOnly(tabId) {
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab) return;
+
+  tab.readOnly = !tab.readOnly;
+
+  // Update tab visual indicator
+  const readOnlyIndicator = tab.tabElement.querySelector('.tab-readonly');
+  if (readOnlyIndicator) {
+    readOnlyIndicator.textContent = tab.readOnly ? '\u25CB' : '';
+  }
+
+  // Add/remove class for tab styling
+  tab.tabElement.classList.toggle('readonly', tab.readOnly);
+
+  if (tab.readOnly) {
+    // Switch to preview
+    updatePreviewContent(tab);
+    tab.editorWrapper.classList.remove('active');
+    tab.previewWrapper.classList.add('active');
+  } else {
+    // Switch back to editor
+    tab.previewWrapper.classList.remove('active');
+    if (activeTabId === tab.id) {
+      tab.editorWrapper.classList.add('active');
+      setTimeout(() => focusEditor(tab.editorView), 10);
+    }
+  }
+
+  return tab.readOnly;
+}
+
+/**
+ * Toggle read-only mode for the active tab.
+ * @returns {boolean|undefined} New read-only state, or undefined if no active tab
+ */
+export function toggleActiveReadOnly() {
+  if (!activeTabId) return;
+  return toggleReadOnly(activeTabId);
+}
+
 /**
  * Create a new tab.
  * @param {string|null} filePath - File path or null for untitled
@@ -272,8 +350,10 @@ export function createTab(filePath, content = '') {
     filePath,
     title,
     modified: false,
+    readOnly: false,
     editorView: null,
     editorWrapper: null,
+    previewWrapper: null,
     tabElement: null,
     autoSave: null,
     content: content, // saved content baseline
@@ -305,6 +385,9 @@ export function createTab(filePath, content = '') {
   tab.editorWrapper = wrapper;
   tab.editorView = editorView;
 
+  // Create preview wrapper (hidden by default)
+  tab.previewWrapper = createPreviewWrapper(tab.id);
+
   tabs.push(tab);
   activateTab(id);
   updateWelcomeScreen();
@@ -324,15 +407,24 @@ export function activateTab(tabId) {
   tabs.forEach(t => {
     t.tabElement.classList.remove('active');
     t.editorWrapper.classList.remove('active');
+    if (t.previewWrapper) t.previewWrapper.classList.remove('active');
   });
 
   // Activate target
   tab.tabElement.classList.add('active');
-  tab.editorWrapper.classList.add('active');
+  if (tab.readOnly) {
+    // Show preview, refresh content
+    updatePreviewContent(tab);
+    tab.previewWrapper.classList.add('active');
+  } else {
+    tab.editorWrapper.classList.add('active');
+  }
   activeTabId = tabId;
 
-  // Focus editor after a brief delay to ensure DOM is ready
-  setTimeout(() => focusEditor(tab.editorView), 10);
+  // Focus editor after a brief delay (only in edit mode)
+  if (!tab.readOnly) {
+    setTimeout(() => focusEditor(tab.editorView), 10);
+  }
 
   // Scroll tab into view
   tab.tabElement.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
@@ -356,9 +448,10 @@ export function closeTab(tabId) {
     tab.autoSave.saveNow();
   }
 
-  // Destroy editor
+  // Destroy editor and preview
   tab.editorView.destroy();
   tab.editorWrapper.remove();
+  if (tab.previewWrapper) tab.previewWrapper.remove();
   tab.tabElement.remove();
 
   tabs.splice(index, 1);
@@ -523,8 +616,9 @@ export async function saveAllModifiedTabs() {
  */
 export function getSessionData() {
   const files = tabs.filter(t => t.filePath).map(t => t.filePath);
+  const readOnlyFiles = tabs.filter(t => t.filePath && t.readOnly).map(t => t.filePath);
   const activeIndex = tabs.findIndex(t => t.id === activeTabId);
-  return { files, activeIndex: Math.max(0, activeIndex), fontSize: currentFontSize };
+  return { files, readOnlyFiles, activeIndex: Math.max(0, activeIndex), fontSize: currentFontSize };
 }
 
 /**
@@ -554,6 +648,17 @@ export function getFontSize() {
 export function activateTabByIndex(index) {
   if (index >= 0 && index < tabs.length) {
     activateTab(tabs[index].id);
+  }
+}
+
+/**
+ * Set read-only state for a tab by file path (used during session restore).
+ * @param {string} filePath
+ */
+export function setReadOnlyByPath(filePath) {
+  const tab = tabs.find(t => t.filePath === filePath);
+  if (tab && !tab.readOnly) {
+    toggleReadOnly(tab.id);
   }
 }
 

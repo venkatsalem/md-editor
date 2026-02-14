@@ -51,6 +51,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onToggleLineNumbers: (callback) => {
     ipcRenderer.on('toggle-line-numbers', () => callback());
   },
+  onToggleReadOnly: (callback) => {
+    ipcRenderer.on('toggle-read-only', () => callback());
+  },
   onRequestSessionData: (callback) => {
     ipcRenderer.on('request-session-data', () => callback());
   },
@@ -62,5 +65,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   onShowNotification: (callback) => {
     ipcRenderer.on('show-notification', (event, data) => callback(data));
+  },
+  onRestoreReadOnly: (callback) => {
+    ipcRenderer.on('restore-read-only', (event, filePaths) => callback(filePaths));
   }
 });

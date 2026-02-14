@@ -127,6 +127,10 @@ function createWindow() {
         if (typeof session.fontSize === 'number') {
           mainWindow.webContents.send('restore-font-size', session.fontSize);
         }
+        // Restore read-only tabs
+        if (Array.isArray(session.readOnlyFiles) && session.readOnlyFiles.length > 0) {
+          mainWindow.webContents.send('restore-read-only', session.readOnlyFiles);
+        }
       }
     }
   });
@@ -258,6 +262,12 @@ function buildMenu() {
         {
           label: 'Toggle Line Numbers',
           click: () => mainWindow && mainWindow.webContents.send('toggle-line-numbers')
+        },
+        { type: 'separator' },
+        {
+          label: 'Toggle Read-Only',
+          accelerator: 'CmdOrCtrl+Shift+R',
+          click: () => mainWindow && mainWindow.webContents.send('toggle-read-only')
         },
         { type: 'separator' },
         {
