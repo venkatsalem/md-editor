@@ -1,0 +1,31 @@
+{
+  "lists": [
+    {
+      "id": "list-1",
+      "title": "Groceries",
+      "tasks": [
+        { "id": "t1", "text": "Milk", "done": true },
+        { "id": "t2", "text": "Eggs", "done": true },
+        { "id": "t3", "text": "Bread", "done": false },
+        { "id": "t4", "text": "Avocados", "done": false }
+      ]
+    },
+    {
+      "id": "list-2",
+      "title": "Work Tasks",
+      "tasks": [
+        { "id": "t5", "text": "Review PR #142", "done": true },
+        { "id": "t6", "text": "Update API docs", "done": false },
+        { "id": "t7", "text": "Fix login bug", "done": false }
+      ]
+    },
+    {
+      "id": "list-3",
+      "title": "Personal",
+      "tasks": [
+        { "id": "t8", "text": "Book dentist appointment", "done": false },
+        { "id": "t9", "text": "Renew gym membership", "done": false }
+      ]
+    }
+  ]
+}

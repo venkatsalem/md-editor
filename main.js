@@ -28,7 +28,7 @@ if (!gotTheLock) {
 
       // Open any files passed as arguments
       const filePaths = commandLine.slice(1).filter(arg => {
-        return arg.endsWith('.md') && !arg.startsWith('--');
+        return (arg.endsWith('.md') || arg.endsWith('.json')) && !arg.startsWith('--');
       });
       filePaths.forEach(fp => {
         const resolved = path.resolve(fp);
@@ -87,7 +87,7 @@ function createWindow() {
 
     // Open files from command line arguments
     const args = process.argv.slice(1).filter(arg => {
-      return arg.endsWith('.md') && !arg.startsWith('--');
+      return (arg.endsWith('.md') || arg.endsWith('.json')) && !arg.startsWith('--');
     });
 
     if (args.length > 0) {
@@ -287,9 +287,10 @@ async function handleOpenFile() {
   if (!mainWindow) return;
 
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: 'Open Markdown File',
+    title: 'Open File',
     filters: [
       { name: 'Markdown Files', extensions: ['md', 'markdown', 'mdown', 'mkd'] },
+      { name: 'Todo Files', extensions: ['json'] },
       { name: 'All Files', extensions: ['*'] }
     ],
     properties: ['openFile', 'multiSelections']

@@ -2,6 +2,7 @@ import { createEditor, getEditorContent, focusEditor, setFontSize } from './edit
 import { createAutoSave } from './autosave.js';
 import { showContextMenu } from './context-menu.js';
 import { renderMarkdown } from './markdown-preview.js';
+import { isTodoJson, parseTodoData, serializeTodoData, renderTodoBoard } from './todo-renderer.js';
 
 let tabs = []; // Array of tab objects
 let activeTabId = null;
@@ -20,12 +21,15 @@ const welcomeScreen = document.getElementById('welcome-screen');
  *   title: string,
  *   modified: boolean,
  *   readOnly: boolean,
- *   editorView: EditorView,
- *   editorWrapper: HTMLElement,
+ *   isTodo: boolean,            // true for todo.json board tabs
+ *   todoData: object | null,    // parsed todo data for todo tabs
+ *   todoWrapper: HTMLElement | null, // DOM wrapper for todo board
+ *   editorView: EditorView | null,
+ *   editorWrapper: HTMLElement | null,
  *   previewWrapper: HTMLElement | null,
  *   tabElement: HTMLElement,
  *   autoSave: { trigger, saveNow, cancel },
- *   content: string  // last saved content
+ *   content: string  // last saved content (JSON string for todo tabs)
  * }
  */
 
@@ -66,13 +70,19 @@ function showTabContextMenu(e, tab) {
   const hasOtherTabs = tabs.length > 1;
   const hasTabsToRight = tabIndex < tabs.length - 1;
 
-  showContextMenu(e.clientX, e.clientY, [
-    {
+  const menuItems = [];
+
+  // Read-only toggle only for non-todo tabs
+  if (!tab.isTodo) {
+    menuItems.push({
       label: tab.readOnly ? 'Edit Mode' : 'Read-Only Mode',
       shortcut: 'Ctrl+Shift+R',
       action: () => toggleReadOnly(tab.id),
-    },
-    { separator: true },
+    });
+    menuItems.push({ separator: true });
+  }
+
+  menuItems.push(
     {
       label: 'Close',
       shortcut: 'Ctrl+W',
@@ -101,8 +111,10 @@ function showTabContextMenu(e, tab) {
           navigator.clipboard.writeText(tab.filePath);
         }
       },
-    },
-  ]);
+    }
+  );
+
+  showContextMenu(e.clientX, e.clientY, menuItems);
 }
 
 let draggedTabId = null;
@@ -287,7 +299,7 @@ function updatePreviewContent(tab) {
  */
 export function toggleReadOnly(tabId) {
   const tab = tabs.find(t => t.id === tabId);
-  if (!tab) return;
+  if (!tab || tab.isTodo) return; // Todo tabs don't support read-only toggle
 
   tab.readOnly = !tab.readOnly;
 
@@ -351,6 +363,9 @@ export function createTab(filePath, content = '') {
     title,
     modified: false,
     readOnly: false,
+    isTodo: false,
+    todoData: null,
+    todoWrapper: null,
     editorView: null,
     editorWrapper: null,
     previewWrapper: null,
@@ -396,6 +411,88 @@ export function createTab(filePath, content = '') {
 }
 
 /**
+ * Create a new todo board tab for a .json todo file.
+ * @param {string} filePath - File path to the todo.json file
+ * @param {string} content - Raw JSON content
+ * @returns {object} The tab object
+ */
+export function createTodoTab(filePath, content = '{"lists":[]}') {
+  // Check if file is already open
+  if (filePath) {
+    const existing = tabs.find(t => t.filePath === filePath);
+    if (existing) {
+      activateTab(existing.id);
+      return existing;
+    }
+  }
+
+  const id = generateTabId();
+  const title = getFilename(filePath);
+  const todoData = parseTodoData(content);
+
+  const tab = {
+    id,
+    filePath,
+    title,
+    modified: false,
+    readOnly: false,
+    isTodo: true,
+    todoData,
+    todoWrapper: null,
+    editorView: null,
+    editorWrapper: null,
+    previewWrapper: null,
+    tabElement: null,
+    autoSave: null,
+    content: content, // saved content baseline (raw JSON string)
+  };
+
+  // Create auto-save — serializes todoData to JSON
+  tab.autoSave = createAutoSave(
+    () => ({
+      filePath: tab.filePath,
+      content: serializeTodoData(tab.todoData),
+    }),
+    () => {
+      // On save success
+      tab.content = serializeTodoData(tab.todoData);
+      setModified(tab.id, false);
+    },
+    (error) => {
+      showNotification('error', `Failed to save ${tab.title}: ${error}`);
+    }
+  );
+
+  // Create tab element
+  tab.tabElement = createTabElement(tab);
+  tabsContainer.appendChild(tab.tabElement);
+
+  // Create todo wrapper
+  const todoWrapper = document.createElement('div');
+  todoWrapper.className = 'todo-wrapper';
+  todoWrapper.dataset.tabId = tab.id;
+  editorsContainer.appendChild(todoWrapper);
+  tab.todoWrapper = todoWrapper;
+
+  // Render todo board
+  renderTodoBoard(todoWrapper, todoData, () => {
+    // On any change in the board
+    const newJson = serializeTodoData(tab.todoData);
+    const isModified = newJson !== tab.content;
+    setModified(tab.id, isModified);
+    if (isModified) {
+      tab.autoSave.trigger();
+    }
+  });
+
+  tabs.push(tab);
+  activateTab(id);
+  updateWelcomeScreen();
+
+  return tab;
+}
+
+/**
  * Activate a tab by ID.
  * @param {string} tabId
  */
@@ -406,13 +503,17 @@ export function activateTab(tabId) {
   // Deactivate all
   tabs.forEach(t => {
     t.tabElement.classList.remove('active');
-    t.editorWrapper.classList.remove('active');
+    if (t.editorWrapper) t.editorWrapper.classList.remove('active');
     if (t.previewWrapper) t.previewWrapper.classList.remove('active');
+    if (t.todoWrapper) t.todoWrapper.classList.remove('active');
   });
 
   // Activate target
   tab.tabElement.classList.add('active');
-  if (tab.readOnly) {
+  if (tab.isTodo) {
+    // Show todo board
+    tab.todoWrapper.classList.add('active');
+  } else if (tab.readOnly) {
     // Show preview, refresh content
     updatePreviewContent(tab);
     tab.previewWrapper.classList.add('active');
@@ -421,8 +522,8 @@ export function activateTab(tabId) {
   }
   activeTabId = tabId;
 
-  // Focus editor after a brief delay (only in edit mode)
-  if (!tab.readOnly) {
+  // Focus editor after a brief delay (only in edit mode, not todo)
+  if (!tab.readOnly && !tab.isTodo) {
     setTimeout(() => focusEditor(tab.editorView), 10);
   }
 
@@ -448,10 +549,11 @@ export function closeTab(tabId) {
     tab.autoSave.saveNow();
   }
 
-  // Destroy editor and preview
-  tab.editorView.destroy();
-  tab.editorWrapper.remove();
+  // Destroy editor, preview, and todo wrapper
+  if (tab.editorView) tab.editorView.destroy();
+  if (tab.editorWrapper) tab.editorWrapper.remove();
   if (tab.previewWrapper) tab.previewWrapper.remove();
+  if (tab.todoWrapper) tab.todoWrapper.remove();
   tab.tabElement.remove();
 
   tabs.splice(index, 1);
@@ -528,7 +630,7 @@ export function getAllTabs() {
  * @returns {EditorView[]}
  */
 export function getAllEditorViews() {
-  return tabs.map(t => t.editorView);
+  return tabs.filter(t => t.editorView).map(t => t.editorView);
 }
 
 /**
@@ -565,7 +667,9 @@ export async function saveActiveTab() {
     return;
   }
 
-  const content = getEditorContent(tab.editorView);
+  const content = tab.isTodo
+    ? serializeTodoData(tab.todoData)
+    : getEditorContent(tab.editorView);
   const result = await window.electronAPI.saveFile(tab.filePath, content);
   if (result.success) {
     tab.content = content;
@@ -582,7 +686,9 @@ export async function saveActiveTabAs() {
   const tab = getActiveTab();
   if (!tab) return;
 
-  const content = getEditorContent(tab.editorView);
+  const content = tab.isTodo
+    ? serializeTodoData(tab.todoData)
+    : getEditorContent(tab.editorView);
   const result = await window.electronAPI.saveFileAs(content);
 
   if (result && result.success && result.filePath) {
@@ -629,7 +735,9 @@ export function updateFontSize(size) {
   currentFontSize = size;
   document.documentElement.style.setProperty('--font-size', size + 'px');
   tabs.forEach(tab => {
-    setFontSize(tab.editorView, size);
+    if (tab.editorView) {
+      setFontSize(tab.editorView, size);
+    }
   });
 }
 

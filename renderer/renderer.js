@@ -1,5 +1,6 @@
 import {
   createTab,
+  createTodoTab,
   closeActiveTab,
   getActiveTab,
   getAllTabs,
@@ -16,6 +17,8 @@ import {
   toggleActiveReadOnly,
   setReadOnlyByPath,
 } from './tab-manager.js';
+
+import { isTodoJson } from './todo-renderer.js';
 
 import {
   editorUndo,
@@ -69,7 +72,12 @@ document.getElementById('btn-close').addEventListener('click', () => {
 // File opened from main process (via menu, session restore, drag-drop, etc.)
 electronAPI.onFileOpened((data) => {
   if (data && data.filePath && data.content !== null && data.content !== undefined) {
-    createTab(data.filePath, data.content);
+    // Detect todo.json files and open in board view
+    if (data.filePath.endsWith('.json') && isTodoJson(data.content)) {
+      createTodoTab(data.filePath, data.content);
+    } else {
+      createTab(data.filePath, data.content);
+    }
   }
 });
 
@@ -96,7 +104,7 @@ electronAPI.onCloseTab(() => {
 // Editor commands (undo, redo, find, replace)
 electronAPI.onEditorCommand((command) => {
   const tab = getActiveTab();
-  if (!tab) return;
+  if (!tab || tab.isTodo) return; // Skip for todo tabs
 
   switch (command) {
     case 'undo':
@@ -193,6 +201,9 @@ document.getElementById('editor-area').addEventListener('contextmenu', (e) => {
   if (!tab) return;
 
   e.preventDefault();
+
+  // Todo tabs handle their own interactions — no editor context menu
+  if (tab.isTodo) return;
 
   // In read-only mode, show a minimal context menu
   if (tab.readOnly) {
@@ -364,12 +375,20 @@ document.addEventListener('drop', async (e) => {
 
   const files = Array.from(e.dataTransfer.files);
   for (const file of files) {
-    if (file.name.endsWith('.md') || file.name.endsWith('.markdown') || file.name.endsWith('.mdown')) {
+    const name = file.name.toLowerCase();
+    const isMarkdown = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.mdown');
+    const isJson = name.endsWith('.json');
+
+    if (isMarkdown || isJson) {
       const filePath = file.path;
       if (filePath) {
         const result = await electronAPI.readFile(filePath);
         if (result.success) {
-          createTab(filePath, result.content);
+          if (isJson && isTodoJson(result.content)) {
+            createTodoTab(filePath, result.content);
+          } else {
+            createTab(filePath, result.content);
+          }
         }
       }
     }
