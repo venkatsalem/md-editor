@@ -1021,36 +1021,7 @@ body {
   color: var(--accent);
 }
 
-.todo-tile-actions {
-  display: flex;
-  gap: 4px;
-}
 
-.todo-tile-delete {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  transition: all 0.15s;
-  border: none;
-  background: transparent;
-  opacity: 0;
-}
-
-.todo-tile:hover .todo-tile-delete {
-  opacity: 1;
-}
-
-.todo-tile-delete:hover {
-  color: #ef4444;
-  background: rgba(239,68,68,0.1);
-}
 
 /* --- Task List Body --- */
 .todo-tile-body {
@@ -1140,43 +1111,7 @@ body {
   text-decoration-color: var(--text-muted);
 }
 
-/* --- Task Actions (hover reveal) --- */
-.todo-task-actions {
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity 0.15s;
-  flex-shrink: 0;
-}
 
-.todo-task:hover .todo-task-actions {
-  opacity: 1;
-}
-
-.todo-task-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 26px;
-  height: 26px;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  transition: all 0.15s;
-  font-size: 13px;
-}
-
-.todo-task-btn:hover {
-  background: var(--hover-bg-strong);
-  color: var(--text-primary);
-}
-
-.todo-task-btn-delete:hover {
-  color: #ef4444;
-  background: rgba(239,68,68,0.1);
-}
 
 /* --- Inline Edit Inputs --- */
 .todo-task-edit-input,

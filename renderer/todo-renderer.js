@@ -17,6 +17,8 @@
  * }
  */
 
+import { showContextMenu } from './context-menu.js';
+
 let idCounter = Date.now();
 function uid() {
   return 'td-' + (idCounter++).toString(36);
@@ -131,34 +133,25 @@ function createListTile(list, data, onChange) {
     startEditTitleInline(titleSpan, list, data, onChange);
   });
 
-  const headerActions = document.createElement('div');
-  headerActions.className = 'todo-tile-actions';
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'todo-tile-delete';
-  deleteBtn.innerHTML = '&times;';
-  deleteBtn.title = 'Delete list';
-  deleteBtn.addEventListener('click', () => {
-    const idx = data.lists.findIndex(l => l.id === list.id);
-    if (idx !== -1) {
-      data.lists.splice(idx, 1);
-      onChange();
-      tile.style.opacity = '0';
-      tile.style.transform = 'scale(0.95)';
-      setTimeout(() => tile.remove(), 200);
-      // If no lists left, re-render to show the new-list card properly
-      if (data.lists.length === 0) {
-        const wrapper = tile.closest('.todo-board')?.parentElement;
-        if (wrapper) renderTodoBoard(wrapper, data, onChange);
-      }
-    }
-  });
-
-  headerActions.appendChild(deleteBtn);
-
   header.appendChild(titleSpan);
-  header.appendChild(headerActions);
   tile.appendChild(header);
+
+  // Right-click context menu on tile header
+  header.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Rename List',
+        action: () => startEditTitleInline(titleSpan, list, data, onChange),
+      },
+      { separator: true },
+      {
+        label: 'Delete List',
+        action: () => confirmDeleteList(tile, list, data, onChange),
+      },
+    ]);
+  });
 
   // Task list
   const taskBody = document.createElement('div');
@@ -226,41 +219,55 @@ function createTaskElement(task, list, data, onChange, taskBody) {
     startEditTask(textSpan, task, onChange);
   });
 
-  // Action buttons (visible on hover)
-  const actions = document.createElement('div');
-  actions.className = 'todo-task-actions';
-
-  const editBtn = document.createElement('button');
-  editBtn.className = 'todo-task-btn';
-  editBtn.innerHTML = '&#9998;'; // pencil
-  editBtn.title = 'Edit task';
-  editBtn.addEventListener('click', () => {
-    startEditTask(textSpan, task, onChange);
+  // Right-click context menu on task
+  taskEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Edit Task',
+        action: () => startEditTask(textSpan, task, onChange),
+      },
+      { separator: true },
+      {
+        label: 'Delete Task',
+        action: () => {
+          if (!confirm('Delete this task?')) return;
+          const idx = list.tasks.findIndex(t => t.id === task.id);
+          if (idx !== -1) {
+            list.tasks.splice(idx, 1);
+            onChange();
+            taskEl.style.opacity = '0';
+            taskEl.style.transform = 'translateX(20px)';
+            setTimeout(() => taskEl.remove(), 200);
+          }
+        },
+      },
+    ]);
   });
-
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'todo-task-btn todo-task-btn-delete';
-  deleteBtn.innerHTML = '&#10005;'; // x
-  deleteBtn.title = 'Delete task';
-  deleteBtn.addEventListener('click', () => {
-    const idx = list.tasks.findIndex(t => t.id === task.id);
-    if (idx !== -1) {
-      list.tasks.splice(idx, 1);
-      onChange();
-      taskEl.style.opacity = '0';
-      taskEl.style.transform = 'translateX(20px)';
-      setTimeout(() => taskEl.remove(), 200);
-    }
-  });
-
-  actions.appendChild(editBtn);
-  actions.appendChild(deleteBtn);
 
   taskEl.appendChild(checkbox);
   taskEl.appendChild(textSpan);
-  taskEl.appendChild(actions);
 
   return taskEl;
+}
+
+function confirmDeleteList(tile, list, data, onChange) {
+  if (!confirm(`Delete list "${list.title}"?`)) return;
+  const idx = data.lists.findIndex(l => l.id === list.id);
+  if (idx !== -1) {
+    data.lists.splice(idx, 1);
+    onChange();
+    tile.style.opacity = '0';
+    tile.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      tile.remove();
+      if (data.lists.length === 0) {
+        const wrapper = tile.closest('.todo-board')?.parentElement;
+        if (wrapper) renderTodoBoard(wrapper, data, onChange);
+      }
+    }, 200);
+  }
 }
 
 function startEditTask(textSpan, task, onChange) {
