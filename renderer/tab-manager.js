@@ -40,7 +40,10 @@ function generateTabId() {
 function getFilename(filePath) {
   if (!filePath) return 'Untitled';
   const parts = filePath.replace(/\\/g, '/').split('/');
-  return parts[parts.length - 1];
+  let name = parts[parts.length - 1];
+  // Strip known extensions: .todo.json, .md, .markdown, .mdown
+  name = name.replace(/\.(todo\.json|md|markdown|mdown)$/i, '');
+  return name || 'Untitled';
 }
 
 function updateWelcomeScreen() {
