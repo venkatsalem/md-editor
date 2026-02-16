@@ -161,16 +161,20 @@ function createListTile(list, data, onChange) {
     const taskEl = createTaskElement(task, list, data, onChange, taskBody);
     taskBody.appendChild(taskEl);
   }
-  tile.appendChild(taskBody);
 
-  // Add task input
-  const footer = document.createElement('div');
-  footer.className = 'todo-tile-footer';
+  // Inline add row — looks like an empty task
+  const addRow = document.createElement('div');
+  addRow.className = 'todo-task todo-task-add';
+
+  const addCheckbox = document.createElement('input');
+  addCheckbox.type = 'checkbox';
+  addCheckbox.className = 'todo-task-checkbox';
+  addCheckbox.disabled = true;
 
   const addInput = document.createElement('input');
-  addInput.className = 'todo-add-input';
   addInput.type = 'text';
-  addInput.placeholder = 'Add a new task...';
+  addInput.className = 'todo-task-add-input';
+  addInput.placeholder = 'New task...';
   addInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && addInput.value.trim()) {
       const newTask = { id: uid(), text: addInput.value.trim(), done: false };
@@ -178,7 +182,7 @@ function createListTile(list, data, onChange) {
       onChange();
 
       const taskEl = createTaskElement(newTask, list, data, onChange, taskBody);
-      taskBody.appendChild(taskEl);
+      taskBody.insertBefore(taskEl, addRow);
       addInput.value = '';
 
       // Scroll to bottom
@@ -186,8 +190,11 @@ function createListTile(list, data, onChange) {
     }
   });
 
-  footer.appendChild(addInput);
-  tile.appendChild(footer);
+  addRow.appendChild(addCheckbox);
+  addRow.appendChild(addInput);
+  taskBody.appendChild(addRow);
+
+  tile.appendChild(taskBody);
 
   return tile;
 }
