@@ -295,67 +295,74 @@ function confirmDeleteList(tile, list, data, onChange) {
 }
 
 function startEditTask(textSpan, task, onChange) {
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'todo-task-edit-input';
-  input.value = task.text;
-
-  textSpan.replaceWith(input);
-  input.focus();
-  input.select();
+  if (textSpan.contentEditable === 'true') return; // already editing
+  const original = task.text;
+  textSpan.contentEditable = 'true';
+  textSpan.classList.add('editing');
+  textSpan.focus();
+  // Select all text
+  const range = document.createRange();
+  range.selectNodeContents(textSpan);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 
   function commit() {
-    const newText = input.value.trim();
-    if (newText && newText !== task.text) {
+    textSpan.contentEditable = 'false';
+    textSpan.classList.remove('editing');
+    const newText = textSpan.textContent.trim();
+    if (newText && newText !== original) {
       task.text = newText;
       onChange();
     }
     textSpan.textContent = task.text;
-    input.replaceWith(textSpan);
   }
 
-  input.addEventListener('blur', commit);
-  input.addEventListener('keydown', (e) => {
+  textSpan.addEventListener('blur', commit, { once: true });
+  textSpan.addEventListener('keydown', function handler(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      input.blur();
+      textSpan.blur();
     }
     if (e.key === 'Escape') {
-      input.value = task.text; // reset
-      input.blur();
+      textSpan.textContent = original;
+      textSpan.blur();
     }
   });
 }
 
 function startEditTitleInline(titleSpan, list, data, onChange) {
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'todo-title-edit-input';
-  input.value = list.title;
-
-  titleSpan.replaceWith(input);
-  input.focus();
-  input.select();
+  if (titleSpan.contentEditable === 'true') return;
+  const original = list.title;
+  titleSpan.contentEditable = 'true';
+  titleSpan.classList.add('editing');
+  titleSpan.focus();
+  const range = document.createRange();
+  range.selectNodeContents(titleSpan);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
 
   function commit() {
-    const newTitle = input.value.trim();
-    if (newTitle && newTitle !== list.title) {
+    titleSpan.contentEditable = 'false';
+    titleSpan.classList.remove('editing');
+    const newTitle = titleSpan.textContent.trim();
+    if (newTitle && newTitle !== original) {
       list.title = newTitle;
       onChange();
     }
     titleSpan.textContent = list.title;
-    input.replaceWith(titleSpan);
   }
 
-  input.addEventListener('blur', commit);
-  input.addEventListener('keydown', (e) => {
+  titleSpan.addEventListener('blur', commit, { once: true });
+  titleSpan.addEventListener('keydown', function handler(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      input.blur();
+      titleSpan.blur();
     }
     if (e.key === 'Escape') {
-      input.value = list.title;
-      input.blur();
+      titleSpan.textContent = original;
+      titleSpan.blur();
     }
   });
 }

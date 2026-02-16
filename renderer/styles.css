@@ -1147,31 +1147,12 @@ body {
   background: rgba(239,68,68,0.1);
 }
 
-/* --- Inline Edit Inputs --- */
-.todo-task-edit-input,
-.todo-title-edit-input {
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  padding: 3px 6px;
-  font-size: inherit;
-  font-weight: inherit;
-  font-family: inherit;
-  color: var(--text-primary);
-  background: var(--bg-primary);
+/* --- Inline Editing (contentEditable) --- */
+.todo-task-text.editing,
+.todo-tile-title.editing {
   outline: none;
-  width: 100%;
-  box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
-}
-
-.todo-task-edit-input {
-  font-size: 14px;
-  flex: 1;
-}
-
-.todo-title-edit-input {
-  font-size: 15px;
-  font-weight: 700;
-  flex: 1;
+  border-bottom: 1px solid var(--accent);
+  cursor: text;
 }
 
 /* --- Inline Add Task Row --- */
