@@ -344,57 +344,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ===== Drag and Drop =====
-const dropOverlay = document.getElementById('drop-overlay');
-let dragCounter = 0;
-
-document.addEventListener('dragenter', (e) => {
-  e.preventDefault();
-  dragCounter++;
-  if (dragCounter === 1) {
-    dropOverlay.classList.remove('hidden');
-  }
-});
-
-document.addEventListener('dragleave', (e) => {
-  e.preventDefault();
-  dragCounter--;
-  if (dragCounter === 0) {
-    dropOverlay.classList.add('hidden');
-  }
-});
-
-document.addEventListener('dragover', (e) => {
-  e.preventDefault();
-});
-
-document.addEventListener('drop', async (e) => {
-  e.preventDefault();
-  dragCounter = 0;
-  dropOverlay.classList.add('hidden');
-
-  const files = Array.from(e.dataTransfer.files);
-  for (const file of files) {
-    const name = file.name.toLowerCase();
-    const isMarkdown = name.endsWith('.md') || name.endsWith('.markdown') || name.endsWith('.mdown');
-    const isJson = name.endsWith('.json');
-
-    if (isMarkdown || isJson) {
-      const filePath = file.path;
-      if (filePath) {
-        const result = await electronAPI.readFile(filePath);
-        if (result.success) {
-          if (isJson && isTodoJson(result.content)) {
-            createTodoTab(filePath, result.content);
-          } else {
-            createTab(filePath, result.content);
-          }
-        }
-      }
-    }
-  }
-});
-
 // ===== Focus Loss: Save All =====
 window.addEventListener('blur', () => {
   saveAllModifiedTabs();

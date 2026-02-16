@@ -48,7 +48,6 @@ export function parseTodoData(content) {
   try {
     const data = JSON.parse(content);
     if (data && Array.isArray(data.lists)) {
-      // Ensure every list/task has an id
       for (const list of data.lists) {
         if (!list.id) list.id = uid();
         if (!Array.isArray(list.tasks)) list.tasks = [];
@@ -71,6 +70,14 @@ export function serializeTodoData(data) {
   return JSON.stringify(data, null, 2) + '\n';
 }
 
+// ===== Drag state =====
+let draggedTaskEl = null;
+let draggedTaskData = null;
+let draggedTaskSourceList = null;
+
+let draggedTileEl = null;
+let draggedTileData = null;
+
 /**
  * Render the full todo board into a wrapper element.
  * @param {HTMLElement} wrapper - The container element
@@ -87,40 +94,103 @@ export function renderTodoBoard(wrapper, data, onChange) {
   grid.className = 'todo-grid';
 
   for (const list of data.lists) {
-    const tile = createListTile(list, data, onChange);
+    const tile = createListTile(list, data, onChange, wrapper, grid);
     grid.appendChild(tile);
   }
 
-  // "New List" card
-  const newListCard = document.createElement('div');
-  newListCard.className = 'todo-new-list';
-  newListCard.innerHTML = '<span class="todo-new-list-icon">+</span><span>New List</span>';
-  newListCard.addEventListener('click', () => {
-    data.lists.push({
-      id: uid(),
-      title: 'New List',
-      tasks: [],
-    });
-    onChange();
-    renderTodoBoard(wrapper, data, onChange);
-    // Focus the title of the last tile for editing
-    const tiles = wrapper.querySelectorAll('.todo-tile');
-    const lastTile = tiles[tiles.length - 1];
-    if (lastTile) {
-      const titleEl = lastTile.querySelector('.todo-tile-title');
-      if (titleEl) startEditTitle(titleEl, list => list, data, onChange, wrapper);
-    }
-  });
-  grid.appendChild(newListCard);
-
   board.appendChild(grid);
   wrapper.appendChild(board);
+
+  // Right-click on board background to add a new list
+  board.addEventListener('contextmenu', (e) => {
+    // Only trigger if clicking on the board/grid itself, not on a tile
+    if (e.target === board || e.target === grid) {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY, [
+        {
+          label: 'New List',
+          action: () => {
+            const newList = { id: uid(), title: 'New List', tasks: [] };
+            data.lists.push(newList);
+            onChange();
+            renderTodoBoard(wrapper, data, onChange);
+            // Focus title for editing
+            const tiles = wrapper.querySelectorAll('.todo-tile');
+            const lastTile = tiles[tiles.length - 1];
+            if (lastTile) {
+              const titleEl = lastTile.querySelector('.todo-tile-title');
+              if (titleEl) startEditTitleInline(titleEl, newList, data, onChange);
+            }
+          },
+        },
+      ]);
+    }
+  });
 }
 
-function createListTile(list, data, onChange) {
+function createListTile(list, data, onChange, wrapper, grid) {
   const tile = document.createElement('div');
   tile.className = 'todo-tile';
   tile.dataset.listId = list.id;
+
+  // --- Tile drag-and-drop (reorder lists) ---
+  tile.draggable = true;
+
+  tile.addEventListener('dragstart', (e) => {
+    // Don't drag if we're editing or dragging a task
+    if (e.target !== tile && !tile.querySelector('.todo-tile-header')?.contains(e.target)) return;
+    if (draggedTaskEl) return; // task drag takes priority
+    draggedTileEl = tile;
+    draggedTileData = list;
+    tile.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', list.id);
+  });
+
+  tile.addEventListener('dragend', () => {
+    tile.classList.remove('dragging');
+    draggedTileEl = null;
+    draggedTileData = null;
+    grid.querySelectorAll('.todo-tile').forEach(t => {
+      t.classList.remove('drop-left', 'drop-right');
+    });
+  });
+
+  tile.addEventListener('dragover', (e) => {
+    if (draggedTileEl && draggedTileEl !== tile) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = tile.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      tile.classList.remove('drop-left', 'drop-right');
+      tile.classList.add(e.clientX < midX ? 'drop-left' : 'drop-right');
+    }
+  });
+
+  tile.addEventListener('dragleave', () => {
+    tile.classList.remove('drop-left', 'drop-right');
+  });
+
+  tile.addEventListener('drop', (e) => {
+    tile.classList.remove('drop-left', 'drop-right');
+    if (draggedTileEl && draggedTileEl !== tile && draggedTileData) {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = tile.getBoundingClientRect();
+      const insertBefore = e.clientX < rect.left + rect.width / 2;
+
+      const fromIdx = data.lists.findIndex(l => l.id === draggedTileData.id);
+      if (fromIdx === -1) return;
+      data.lists.splice(fromIdx, 1);
+
+      let toIdx = data.lists.findIndex(l => l.id === list.id);
+      if (!insertBefore) toIdx += 1;
+      data.lists.splice(toIdx, 0, draggedTileData);
+
+      onChange();
+      renderTodoBoard(wrapper, data, onChange);
+    }
+  });
 
   // Header
   const header = document.createElement('div');
@@ -148,21 +218,69 @@ function createListTile(list, data, onChange) {
       { separator: true },
       {
         label: 'Delete List',
-        action: () => confirmDeleteList(tile, list, data, onChange),
+        action: () => confirmDeleteList(tile, list, data, onChange, wrapper),
       },
     ]);
   });
 
-  // Task list
+  // Task list body
   const taskBody = document.createElement('div');
   taskBody.className = 'todo-tile-body';
 
+  // --- Task drop zone (for reordering within and between lists) ---
+  taskBody.addEventListener('dragover', (e) => {
+    if (!draggedTaskEl) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    // Find the task element we're hovering over
+    const target = getTaskElementAt(taskBody, e.clientY);
+    clearTaskDropIndicators(taskBody);
+    if (target && target !== draggedTaskEl) {
+      const rect = target.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      target.classList.add(e.clientY < midY ? 'drop-above' : 'drop-below');
+    }
+  });
+
+  taskBody.addEventListener('dragleave', () => {
+    clearTaskDropIndicators(taskBody);
+  });
+
+  taskBody.addEventListener('drop', (e) => {
+    if (!draggedTaskEl || !draggedTaskData || !draggedTaskSourceList) return;
+    e.preventDefault();
+    e.stopPropagation();
+    clearTaskDropIndicators(taskBody);
+
+    // Remove from source list
+    const srcIdx = draggedTaskSourceList.tasks.findIndex(t => t.id === draggedTaskData.id);
+    if (srcIdx !== -1) draggedTaskSourceList.tasks.splice(srcIdx, 1);
+
+    // Find insert position
+    const target = getTaskElementAt(taskBody, e.clientY);
+    if (target && target !== draggedTaskEl) {
+      const rect = target.getBoundingClientRect();
+      const insertBefore = e.clientY < rect.top + rect.height / 2;
+      const targetId = target.dataset.taskId;
+      let destIdx = list.tasks.findIndex(t => t.id === targetId);
+      if (!insertBefore) destIdx += 1;
+      list.tasks.splice(destIdx, 0, draggedTaskData);
+    } else {
+      // Drop at end
+      list.tasks.push(draggedTaskData);
+    }
+
+    onChange();
+    renderTodoBoard(wrapper, data, onChange);
+  });
+
   for (const task of list.tasks) {
-    const taskEl = createTaskElement(task, list, data, onChange, taskBody);
+    const taskEl = createTaskElement(task, list, data, onChange, taskBody, wrapper);
     taskBody.appendChild(taskEl);
   }
 
-  // Inline add row — looks like an empty task
+  // Inline add row
   const addRow = document.createElement('div');
   addRow.className = 'todo-task todo-task-add';
 
@@ -181,11 +299,9 @@ function createListTile(list, data, onChange) {
       list.tasks.push(newTask);
       onChange();
 
-      const taskEl = createTaskElement(newTask, list, data, onChange, taskBody);
+      const taskEl = createTaskElement(newTask, list, data, onChange, taskBody, wrapper);
       taskBody.insertBefore(taskEl, addRow);
       addInput.value = '';
-
-      // Scroll to bottom
       taskBody.scrollTop = taskBody.scrollHeight;
     }
   });
@@ -195,21 +311,44 @@ function createListTile(list, data, onChange) {
   taskBody.appendChild(addRow);
 
   tile.appendChild(taskBody);
-
   return tile;
 }
 
-function createTaskElement(task, list, data, onChange, taskBody) {
+function createTaskElement(task, list, data, onChange, taskBody, wrapper) {
   const taskEl = document.createElement('div');
   taskEl.className = 'todo-task';
   if (task.done) taskEl.classList.add('done');
   taskEl.dataset.taskId = task.id;
+  taskEl.draggable = true;
+
+  // --- Task drag ---
+  taskEl.addEventListener('dragstart', (e) => {
+    e.stopPropagation(); // prevent tile drag
+    draggedTaskEl = taskEl;
+    draggedTaskData = task;
+    draggedTaskSourceList = list;
+    taskEl.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', task.id);
+  });
+
+  taskEl.addEventListener('dragend', () => {
+    taskEl.classList.remove('dragging');
+    draggedTaskEl = null;
+    draggedTaskData = null;
+    draggedTaskSourceList = null;
+    // Clean up all indicators
+    document.querySelectorAll('.drop-above, .drop-below').forEach(el => {
+      el.classList.remove('drop-above', 'drop-below');
+    });
+  });
 
   // Checkbox
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.checked = task.done;
   checkbox.className = 'todo-task-checkbox';
+
   // Delete button (shown only when done)
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'todo-task-delete';
@@ -276,7 +415,26 @@ function createTaskElement(task, list, data, onChange, taskBody) {
   return taskEl;
 }
 
-function confirmDeleteList(tile, list, data, onChange) {
+// ===== Helpers =====
+
+function getTaskElementAt(taskBody, clientY) {
+  const tasks = Array.from(taskBody.querySelectorAll('.todo-task:not(.todo-task-add):not(.dragging)'));
+  for (const task of tasks) {
+    const rect = task.getBoundingClientRect();
+    if (clientY >= rect.top && clientY <= rect.bottom) {
+      return task;
+    }
+  }
+  return null;
+}
+
+function clearTaskDropIndicators(taskBody) {
+  taskBody.querySelectorAll('.drop-above, .drop-below').forEach(el => {
+    el.classList.remove('drop-above', 'drop-below');
+  });
+}
+
+function confirmDeleteList(tile, list, data, onChange, wrapper) {
   if (!confirm(`Delete list "${list.title}"?`)) return;
   const idx = data.lists.findIndex(l => l.id === list.id);
   if (idx !== -1) {
@@ -285,23 +443,21 @@ function confirmDeleteList(tile, list, data, onChange) {
     tile.style.opacity = '0';
     tile.style.transform = 'scale(0.95)';
     setTimeout(() => {
-      tile.remove();
-      if (data.lists.length === 0) {
-        const wrapper = tile.closest('.todo-board')?.parentElement;
-        if (wrapper) renderTodoBoard(wrapper, data, onChange);
-      }
+      renderTodoBoard(wrapper, data, onChange);
     }, 200);
   }
 }
 
+// ===== Inline editing =====
+
 function makeEditable(el, getText, setText, onChange) {
-  if (el.contentEditable === 'true') return; // already editing
+  if (el.contentEditable === 'true') return;
   const original = getText();
   el.contentEditable = 'true';
   el.classList.add('editing');
   el.focus();
 
-  // Place cursor at end instead of selecting all
+  // Place cursor at end
   const range = document.createRange();
   range.selectNodeContents(el);
   range.collapse(false);
@@ -353,12 +509,3 @@ function startEditTitleInline(titleSpan, list, data, onChange) {
     onChange
   );
 }
-
-// Legacy — kept for the "new list" flow
-function startEditTitle(titleEl, getList, data, onChange, wrapper) {
-  const list = data.lists[data.lists.length - 1];
-  if (!list) return;
-  startEditTitleInline(titleEl, list, data, onChange);
-}
-
-
