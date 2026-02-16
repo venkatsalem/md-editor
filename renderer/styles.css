@@ -1005,6 +1005,14 @@ body {
   flex-shrink: 0;
 }
 
+[data-theme="dark"] .todo-tile-header {
+  background: rgba(0,0,0,0.2);
+}
+
+[data-theme="light"] .todo-tile-header {
+  background: rgba(0,0,0,0.03);
+}
+
 .todo-tile-title {
   font-size: 15px;
   font-weight: 700;
