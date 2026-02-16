@@ -210,6 +210,22 @@ function createTaskElement(task, list, data, onChange, taskBody) {
   checkbox.type = 'checkbox';
   checkbox.checked = task.done;
   checkbox.className = 'todo-task-checkbox';
+  // Delete button (shown only when done)
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'todo-task-delete';
+  deleteBtn.innerHTML = '&#10005;';
+  deleteBtn.title = 'Delete task';
+  deleteBtn.addEventListener('click', () => {
+    const idx = list.tasks.findIndex(t => t.id === task.id);
+    if (idx !== -1) {
+      list.tasks.splice(idx, 1);
+      onChange();
+      taskEl.style.opacity = '0';
+      taskEl.style.transform = 'translateX(20px)';
+      setTimeout(() => taskEl.remove(), 200);
+    }
+  });
+
   checkbox.addEventListener('change', () => {
     task.done = checkbox.checked;
     taskEl.classList.toggle('done', task.done);
@@ -255,6 +271,7 @@ function createTaskElement(task, list, data, onChange, taskBody) {
 
   taskEl.appendChild(checkbox);
   taskEl.appendChild(textSpan);
+  taskEl.appendChild(deleteBtn);
 
   return taskEl;
 }

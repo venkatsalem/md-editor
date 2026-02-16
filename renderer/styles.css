@@ -1113,6 +1113,32 @@ body {
 
 
 
+/* --- Task Delete Button (visible on completed tasks) --- */
+.todo-task-delete {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: all 0.15s;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.todo-task.done .todo-task-delete {
+  display: flex;
+}
+
+.todo-task-delete:hover {
+  color: #ef4444;
+  background: rgba(239,68,68,0.1);
+}
+
 /* --- Inline Edit Inputs --- */
 .todo-task-edit-input,
 .todo-title-edit-input {
