@@ -294,77 +294,64 @@ function confirmDeleteList(tile, list, data, onChange) {
   }
 }
 
-function startEditTask(textSpan, task, onChange) {
-  if (textSpan.contentEditable === 'true') return; // already editing
-  const original = task.text;
-  textSpan.contentEditable = 'true';
-  textSpan.classList.add('editing');
-  textSpan.focus();
-  // Select all text
+function makeEditable(el, getText, setText, onChange) {
+  if (el.contentEditable === 'true') return; // already editing
+  const original = getText();
+  el.contentEditable = 'true';
+  el.classList.add('editing');
+  el.focus();
+
+  // Place cursor at end instead of selecting all
   const range = document.createRange();
-  range.selectNodeContents(textSpan);
+  range.selectNodeContents(el);
+  range.collapse(false);
   const sel = window.getSelection();
   sel.removeAllRanges();
   sel.addRange(range);
 
   function commit() {
-    textSpan.contentEditable = 'false';
-    textSpan.classList.remove('editing');
-    const newText = textSpan.textContent.trim();
+    el.contentEditable = 'false';
+    el.classList.remove('editing');
+    el.removeEventListener('keydown', onKey);
+    const newText = el.textContent.trim();
     if (newText && newText !== original) {
-      task.text = newText;
+      setText(newText);
       onChange();
     }
-    textSpan.textContent = task.text;
+    el.textContent = getText();
   }
 
-  textSpan.addEventListener('blur', commit, { once: true });
-  textSpan.addEventListener('keydown', function handler(e) {
+  function onKey(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      textSpan.blur();
+      el.blur();
     }
     if (e.key === 'Escape') {
-      textSpan.textContent = original;
-      textSpan.blur();
+      el.textContent = original;
+      el.blur();
     }
-  });
+  }
+
+  el.addEventListener('blur', commit, { once: true });
+  el.addEventListener('keydown', onKey);
+}
+
+function startEditTask(textSpan, task, onChange) {
+  makeEditable(
+    textSpan,
+    () => task.text,
+    (v) => { task.text = v; },
+    onChange
+  );
 }
 
 function startEditTitleInline(titleSpan, list, data, onChange) {
-  if (titleSpan.contentEditable === 'true') return;
-  const original = list.title;
-  titleSpan.contentEditable = 'true';
-  titleSpan.classList.add('editing');
-  titleSpan.focus();
-  const range = document.createRange();
-  range.selectNodeContents(titleSpan);
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-
-  function commit() {
-    titleSpan.contentEditable = 'false';
-    titleSpan.classList.remove('editing');
-    const newTitle = titleSpan.textContent.trim();
-    if (newTitle && newTitle !== original) {
-      list.title = newTitle;
-      onChange();
-    }
-    titleSpan.textContent = list.title;
-  }
-
-  titleSpan.addEventListener('blur', commit, { once: true });
-  titleSpan.addEventListener('keydown', function handler(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      titleSpan.blur();
-    }
-    if (e.key === 'Escape') {
-      titleSpan.textContent = original;
-      titleSpan.blur();
-    }
-  });
+  makeEditable(
+    titleSpan,
+    () => list.title,
+    (v) => { list.title = v; },
+    onChange
+  );
 }
 
 // Legacy — kept for the "new list" flow

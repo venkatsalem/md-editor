@@ -13,8 +13,11 @@ Designed to do one thing well — edit markdown files with minimal overhead and 
 - **Session restore** — reopens your files, active tab, tab order, and zoom level on next launch
 - **Recent files** — tracks last 10 opened files in File > Open Recent
 - **Single instance** — opening a file while the app is running adds it as a new tab
-- **Drag and drop** — drop `.md` files onto the window to open them
+- **Todo board** — open `.todo.json` files as a card-based task board (see below)
+- **Drag and drop** — drop `.md` or `.json` files onto the window to open them
 - **Find/Replace** — Ctrl+F / Ctrl+H with CodeMirror's built-in search
+- **Read-only mode** — Ctrl+Shift+R to toggle GitHub-style markdown preview
+- **Inline checkboxes** — clickable checkboxes for `- [ ]` / `- [x]` task lists in markdown
 - **Context menus** — right-click tabs (Close, Close Others, Close All, Copy Path) and editor (Cut, Copy, Paste, Undo, Redo, Find, Replace, Select All)
 - **Frameless window** — custom titlebar with centered tabs and draggable regions
 - **File association** — register as handler for `.md` files
@@ -37,7 +40,37 @@ Designed to do one thing well — edit markdown files with minimal overhead and 
 | Zoom In | Ctrl+= |
 | Zoom Out | Ctrl+- |
 | Reset Zoom | Ctrl+0 |
+| Toggle Read-Only | Ctrl+Shift+R |
 | Quit | Ctrl+Q |
+
+## Todo Board
+
+Open any `.json` file with the following structure and it renders as an interactive task board:
+
+```json
+{
+  "lists": [
+    {
+      "id": "list-1",
+      "title": "My Tasks",
+      "tasks": [
+        { "id": "t1", "text": "Buy groceries", "done": false },
+        { "id": "t2", "text": "Review PR", "done": true }
+      ]
+    }
+  ]
+}
+```
+
+- Click the **checkbox** to mark a task as done
+- **Double-click** a task or list title to edit it in-place
+- **Right-click** a list header for Rename / Delete options
+- **Right-click** a task for Edit / Delete options
+- Completed tasks show a **delete icon** for quick removal
+- Type in the bottom row and press **Enter** to add a new task
+- Click the **+ New List** card to create a new list
+- Changes are **auto-saved** to the `.json` file
+- A sample file is included at `samples/todo.json`
 
 ## Getting Started
 
@@ -86,6 +119,11 @@ md-editor/
     editor-manager.js      CodeMirror 6 setup, dual themes, compartments
     autosave.js            Debounced auto-save with retry
     context-menu.js        Reusable right-click context menu
+    checkbox-widget.js     CM6 plugin — inline checkboxes for task lists
+    markdown-preview.js    Lightweight GFM-to-HTML renderer for read-only mode
+    todo-renderer.js       Todo board UI — card-based task list for .json files
+  samples/
+    todo.json              Example todo file
   utils/
     file-ops.js            Async file read/write/exists
     session-store.js       ~/.md-editor/session.json persistence
