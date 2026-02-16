@@ -1021,32 +1021,6 @@ body {
   color: var(--accent);
 }
 
-.todo-tile-progress {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  padding: 2px 7px;
-  border-radius: 10px;
-  background: var(--hover-bg);
-}
-
-.todo-tile-progress:empty {
-  display: none;
-}
-
-.todo-tile-progress.all-done {
-  color: #10b981;
-}
-
-[data-theme="dark"] .todo-tile-progress.all-done {
-  background: rgba(16,185,129,0.15);
-}
-
-[data-theme="light"] .todo-tile-progress.all-done {
-  background: rgba(16,185,129,0.1);
-}
-
 .todo-tile-actions {
   display: flex;
   gap: 4px;

@@ -131,11 +131,6 @@ function createListTile(list, data, onChange) {
     startEditTitleInline(titleSpan, list, data, onChange);
   });
 
-  // Progress indicator
-  const progress = document.createElement('span');
-  progress.className = 'todo-tile-progress';
-  updateProgress(progress, list);
-
   const headerActions = document.createElement('div');
   headerActions.className = 'todo-tile-actions';
 
@@ -162,7 +157,6 @@ function createListTile(list, data, onChange) {
   headerActions.appendChild(deleteBtn);
 
   header.appendChild(titleSpan);
-  header.appendChild(progress);
   header.appendChild(headerActions);
   tile.appendChild(header);
 
@@ -194,8 +188,6 @@ function createListTile(list, data, onChange) {
       taskBody.appendChild(taskEl);
       addInput.value = '';
 
-      updateProgress(progress, list);
-
       // Scroll to bottom
       taskBody.scrollTop = taskBody.scrollHeight;
     }
@@ -223,9 +215,6 @@ function createTaskElement(task, list, data, onChange, taskBody) {
     taskEl.classList.toggle('done', task.done);
     textSpan.classList.toggle('done', task.done);
     onChange();
-    // Update progress
-    const progress = taskEl.closest('.todo-tile')?.querySelector('.todo-tile-progress');
-    if (progress) updateProgress(progress, list);
   });
 
   // Text
@@ -260,11 +249,7 @@ function createTaskElement(task, list, data, onChange, taskBody) {
       onChange();
       taskEl.style.opacity = '0';
       taskEl.style.transform = 'translateX(20px)';
-      setTimeout(() => {
-        taskEl.remove();
-        const progress = taskBody.closest('.todo-tile')?.querySelector('.todo-tile-progress');
-        if (progress) updateProgress(progress, list);
-      }, 200);
+      setTimeout(() => taskEl.remove(), 200);
     }
   });
 
@@ -351,13 +336,4 @@ function startEditTitle(titleEl, getList, data, onChange, wrapper) {
   startEditTitleInline(titleEl, list, data, onChange);
 }
 
-function updateProgress(progressEl, list) {
-  const total = list.tasks.length;
-  const done = list.tasks.filter(t => t.done).length;
-  if (total === 0) {
-    progressEl.textContent = '';
-    return;
-  }
-  progressEl.textContent = `${done}/${total}`;
-  progressEl.classList.toggle('all-done', done === total);
-}
+
