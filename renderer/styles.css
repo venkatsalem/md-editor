@@ -11,7 +11,7 @@
 :root, [data-theme="dark"] {
   --bg-primary: #1e1e1e;
   --bg-secondary: #252526;
-  --bg-titlebar: #1a1a1a;
+  --bg-titlebar: #0d0d0d;
   --bg-tab-inactive: #2d2d2d;
   --bg-tab-active: #1e1e1e;
   --text-primary: #ffffff;
@@ -44,7 +44,7 @@
 [data-theme="light"] {
   --bg-primary: #ffffff;
   --bg-secondary: #f3f3f3;
-  --bg-titlebar: #e0e0e0;
+  --bg-titlebar: #c8c8c8;
   --bg-tab-inactive: #ececec;
   --bg-tab-active: #ffffff;
   --text-primary: #1e1e1e;
@@ -78,7 +78,7 @@
   :root:not([data-theme]) {
     --bg-primary: #ffffff;
     --bg-secondary: #f3f3f3;
-    --bg-titlebar: #e0e0e0;
+    --bg-titlebar: #c8c8c8;
     --bg-tab-inactive: #ececec;
     --bg-tab-active: #ffffff;
     --text-primary: #1e1e1e;
@@ -586,10 +586,16 @@ body {
 
 /* ===== Read-Only Tab Indicator ===== */
 .tab-readonly {
-  font-size: 10px;
-  margin-left: 3px;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
   flex-shrink: 0;
   color: var(--accent);
+  line-height: 1;
+}
+
+.tab-readonly svg {
+  display: block;
 }
 
 .tab.readonly {

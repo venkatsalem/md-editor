@@ -294,7 +294,7 @@ export function toggleReadOnly(tabId) {
   // Update tab visual indicator
   const readOnlyIndicator = tab.tabElement.querySelector('.tab-readonly');
   if (readOnlyIndicator) {
-    readOnlyIndicator.textContent = tab.readOnly ? '\u25CB' : '';
+    readOnlyIndicator.innerHTML = tab.readOnly ? '<svg width="10" height="12" viewBox="0 0 12 14" fill="currentColor"><path d="M10 5H9V3.5C9 1.57 7.43 0 5.5 0S2 1.57 2 3.5V5H1C0.45 5 0 5.45 0 6v7c0 0.55 0.45 1 1 1h9c0.55 0 1-0.45 1-1V6c0-0.55-0.45-1-1-1zM5.5 10.5c-0.83 0-1.5-0.67-1.5-1.5S4.67 7.5 5.5 7.5 7 8.17 7 9s-0.67 1.5-1.5 1.5zM7.5 5h-4V3.5C3.5 2.4 4.4 1.5 5.5 1.5S7.5 2.4 7.5 3.5V5z"/></svg>' : '';
   }
 
   // Add/remove class for tab styling

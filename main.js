@@ -11,7 +11,7 @@ function getSystemTheme() {
 }
 
 function getBgColorForTheme() {
-  return getSystemTheme() === 'dark' ? '#1a1a1a' : '#e0e0e0';
+  return getSystemTheme() === 'dark' ? '#0d0d0d' : '#c8c8c8';
 }
 
 // Single instance lock
